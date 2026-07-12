@@ -1,0 +1,2374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Potato Amusement Park · 土豆游乐园</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600;700&family=Press+Start+2P&family=ZCOOL+XiaoWei&family=VT323&display=swap');
+
+  :root {
+    --bg-deep: #1a1f2e;
+    --gold: #e8b830;
+    --gold-light: #fff2cc;
+    --blue-magic: #5a7fb8;
+    --pink-soft: #e8a0bf;
+    --text-primary: #e0d8cc;
+    --text-secondary: #a09888;
+    --glass-bg: rgba(20, 22, 38, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Noto Serif SC', 'PingFang SC', 'Microsoft YaHei', serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    color: var(--text-primary);
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse at 50% 35%, #6a82c4 0%, #4a5a8a 25%, #2a3050 55%, #161a2e 80%, #0a0c18 100%);
+    position: relative;
+  }
+
+  /* ===== 主场景背景图（地球后方） ===== */
+  #scene-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+    pointer-events: none;
+  }
+  #scene-bg.visible { opacity: 0.55; }
+  #scene-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center,
+      transparent 0%,
+      rgba(10, 12, 24, 0.4) 60%,
+      rgba(10, 12, 24, 0.85) 100%);
+  }
+
+  /* ===== 像素雪花（参考图背景） ===== */
+  .pixel-snow {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .pixel {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.85);
+    width: 3px; height: 3px;
+    image-rendering: pixelated;
+    box-shadow: 0 0 2px rgba(255,255,255,0.5);
+  }
+  .pixel.large { width: 5px; height: 5px; background: #fff; }
+
+  /* ===== 中央光晕 ===== */
+  .center-glow {
+    position: fixed;
+    top: 35%; left: 50%;
+    width: 70vw; height: 70vw;
+    max-width: 900px; max-height: 900px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(255, 200, 220, 0.35) 0%, rgba(180, 200, 255, 0.18) 30%, transparent 65%);
+    pointer-events: none;
+    z-index: 2;
+    filter: blur(10px);
+  }
+
+  /* ===== 飞舞的彩纸 ===== */
+  .confetti {
+    position: fixed;
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0.45;
+  }
+
+  /* ===== 主Canvas ===== */
+  canvas#globe {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 5;
+    display: none;
+  }
+  canvas#globe.visible { display: block; }
+
+  /* ============================================ */
+  /* ============  开屏 Loading 界面  ============ */
+  /* ============================================ */
+  #opening {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 500;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.8s ease;
+  }
+  #opening.hidden { opacity: 0; pointer-events: none; }
+
+  /* 开屏背景（可替换为 images/opening.jpg） */
+  #opening-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #2a3050 0%, #4a5a8a 30%, #c4a8b8 60%, #e8c8d0 80%, #f4d8d8 100%);
+    overflow: hidden;
+  }
+  #opening-bg::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(8, 10, 20, 0.4);
+  }
+  #opening-bg img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0.65;
+    z-index: 1;
+  }
+
+  /* 飞舞的彩纸emoji装饰 */
+  .opening-emoji {
+    position: absolute;
+    font-size: 24px;
+    pointer-events: none;
+    z-index: 2;
+    animation: floatEmoji 6s ease-in-out infinite;
+  }
+  @keyframes floatEmoji {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-15px) rotate(8deg); }
+  }
+
+  /* 开屏主容器 */
+  #opening-content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .loading-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(14px, 1.8vw, 18px);
+    color: #2a2030;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+    text-shadow: 0 2px 4px rgba(255,255,255,0.4);
+  }
+  .progress-track {
+    width: clamp(240px, 36vw, 380px);
+    height: 18px;
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px solid #4a3a50;
+    border-radius: 0;
+    margin: 0 auto 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #d8b8e0 0%, #e8c8d8 50%, #f4d8d8 100%);
+    width: 0%;
+    transition: width 0.3s linear;
+  }
+  .progress-percent {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: #2a2030;
+    letter-spacing: 2px;
+    margin-bottom: 36px;
+    text-shadow: 0 2px 4px rgba(255,255,255,0.4);
+  }
+
+  .enter-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 8px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .enter-buttons.show { opacity: 1; }
+  .enter-btn {
+    font-family: 'Press Start 2P', monospace;
+    background: rgba(255, 255, 255, 0.85);
+    border: 2px solid #4a3a50;
+    color: #2a2030;
+    padding: 14px 32px;
+    font-size: 12px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 0 #4a3a50;
+  }
+  .enter-btn:hover {
+    transform: translateY(-2px);
+    background: #fff;
+    box-shadow: 0 6px 0 #4a3a50;
+  }
+  .enter-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #4a3a50;
+  }
+  .enter-btn.secondary { color: #6a3a5a; }
+
+  /* 开屏底部标题 */
+  .opening-title {
+    position: absolute;
+    bottom: 7%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+  }
+  .opening-title .en {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: clamp(22px, 3.8vw, 36px);
+    color: #2a2030;
+    letter-spacing: 4px;
+    text-shadow: 0 2px 6px rgba(255,255,255,0.5);
+  }
+  .opening-title .cn {
+    font-size: clamp(13px, 2vw, 18px);
+    color: #3a2a3a;
+    letter-spacing: 6px;
+    margin-top: 6px;
+    text-shadow: 0 1px 3px rgba(255,255,255,0.5);
+  }
+
+  /* 右上角 1/5 计数器 */
+  .opening-counter {
+    position: absolute;
+    top: 24px; right: 24px;
+    z-index: 11;
+    background: rgba(60, 60, 80, 0.75);
+    color: #fff;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    letter-spacing: 1px;
+  }
+
+  /* ============================================ */
+  /* ============  主场景 UI  =================== */
+  /* ============================================ */
+  #title-overlay {
+    position: fixed; top: 22px; left: 50%; transform: translateX(-50%);
+    z-index: 15; text-align: center; pointer-events: none;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  #title-overlay.visible { opacity: 1; }
+  #title-overlay .main-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(14px, 1.8vw, 22px);
+    color: #fff;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6), 0 0 20px rgba(255,255,255,0.2);
+    letter-spacing: 3px;
+  }
+  #title-overlay .subtitle {
+    font-family: 'VT323', monospace;
+    font-size: clamp(13px, 1.6vw, 18px);
+    color: rgba(255,255,255,0.7);
+    margin-top: 4px;
+    letter-spacing: 2px;
+  }
+
+  /* ===== 左上角：雪花计数 ===== */
+  #snowflake-counter {
+    position: fixed; top: 22px; left: 22px;
+    z-index: 15;
+    background: rgba(255, 255, 255, 0.92);
+    color: #2a2030;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    display: flex; align-items: center; gap: 6px;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  #snowflake-counter.visible { opacity: 1; }
+  #snowflake-counter .sf-icon {
+    color: #6a9bd8; font-size: 16px;
+  }
+  #snowflake-counter .sf-num {
+    color: #d04080; font-weight: bold; min-width: 24px;
+  }
+
+  /* ===== 右上角：音量控制 ===== */
+  #volume-control {
+    position: fixed; top: 22px; right: 22px;
+    z-index: 15;
+    display: flex; align-items: center; gap: 8px;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  #volume-control.visible { opacity: 1; }
+  #volume-btn {
+    width: 38px; height: 38px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #2a2030;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    transition: all 0.2s;
+  }
+  #volume-btn:hover { background: #fff; transform: scale(1.05); }
+  #volume-btn.muted { color: #888; }
+  #volume-slider-wrap {
+    width: 0;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 20px;
+    padding: 0;
+    transition: all 0.3s ease;
+    display: flex; align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  #volume-slider-wrap.open {
+    width: 110px;
+    padding: 0 12px;
+  }
+  #volume-slider {
+    width: 90px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(60, 50, 70, 0.3);
+    border-radius: 2px;
+    outline: none;
+  }
+  #volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: #d04080;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  #volume-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    background: #d04080;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+
+  /* ===== 底部副标题 ===== */
+  #footer-overlay {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  #footer-overlay.visible { opacity: 1; }
+  #footer-overlay .footer-en {
+    font-family: 'VT323', monospace;
+    font-size: clamp(15px, 1.8vw, 22px);
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 1.5px;
+    line-height: 1.5;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  }
+  #footer-overlay .footer-cn {
+    font-size: clamp(11px, 1.4vw, 14px);
+    color: rgba(255,255,255,0.6);
+    margin-top: 4px;
+    letter-spacing: 2px;
+  }
+
+  /* ===== 左下角：头像 + 文字气泡 ===== */
+  #avatar-section {
+    position: fixed;
+    bottom: 22px; left: 22px;
+    z-index: 15;
+    display: flex; flex-direction: column; align-items: flex-start;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  #avatar-section.visible { opacity: 1; }
+
+  .bubble {
+    position: relative;
+    background: rgba(255, 255, 255, 0.95);
+    color: #2a2030;
+    padding: 8px 14px;
+    border-radius: 12px;
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    letter-spacing: 1px;
+    line-height: 1.4;
+    max-width: 180px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: all 0.3s;
+  }
+  .bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -6px; left: 16px;
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid rgba(255, 255, 255, 0.95);
+  }
+
+  .avatar-img {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: #ddd;
+    background-size: cover;
+    background-position: center;
+    border: 3px solid rgba(255,255,255,0.9);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .avatar-img:hover { transform: scale(1.08); }
+
+  /* ===== 底部中央：游戏提示 ===== */
+  #progress-container {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    z-index: 14;
+    background: rgba(20, 22, 38, 0.75);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--glass-border);
+    border-radius: 30px; padding: 8px 20px;
+    display: flex; align-items: center; gap: 10px;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  #progress-container.visible { opacity: 1; }
+  #snowflake-icon { font-size: 18px; animation: float-icon 2s ease-in-out infinite; }
+  @keyframes float-icon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+  #progress-text {
+    color: var(--text-primary); font-size: 12px; letter-spacing: 1px; white-space:nowrap;
+  }
+  #progress-bar-outer {
+    width: clamp(60px, 14vw, 140px); height: 4px;
+    background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;
+  }
+  #progress-bar-inner {
+    height:100%;
+    background: linear-gradient(90deg,var(--blue-magic),var(--gold),var(--pink-soft));
+    border-radius:2px; transition:width 0.5s; width:0%;
+  }
+
+  /* ===== City Tooltip ===== */
+  #city-tooltip {
+    position:fixed; z-index:20; pointer-events:none; opacity:0; transition:opacity 0.2s;
+    background:rgba(20,22,38,0.9); backdrop-filter:blur(10px);
+    border:1px solid rgba(232,184,48,0.3); border-radius:8px;
+    padding:4px 10px; color:#fff; font-size:11px; letter-spacing:1px;
+    transform:translate(-50%,-120%); white-space:nowrap;
+  }
+
+  /* ===== Note Popup ===== */
+  #note-popup {
+    position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px);
+    z-index:30; opacity:0; pointer-events:none;
+    transition:all 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    background:linear-gradient(135deg,rgba(232,160,191,0.12),rgba(58,95,138,0.12));
+    border:1px solid rgba(232,160,191,0.3);
+    border-radius:14px; padding:12px 18px; max-width:300px; text-align:center;
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  }
+  #note-popup.show { opacity:1; transform:translateX(-50%) translateY(0); pointer-events:all; }
+  #note-popup .note-icon { font-size:22px; margin-bottom:4px; }
+  #note-popup .note-text { color:#f0d8e8; font-size:12px; line-height:1.6; letter-spacing:1px; }
+  #note-popup .note-dismiss {
+    margin-top:6px; background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.15); color:#ccc;
+    padding:4px 14px; border-radius:14px; cursor:pointer;
+    font-family:inherit; font-size:10px;
+  }
+
+  /* ===== Memory Page ===== */
+  #memory-page {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    z-index:200; background:rgba(8,10,24,0.97);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    display:flex; flex-direction:column;
+    opacity:0; pointer-events:none; transition:opacity 0.5s;
+    overflow-y:auto; overflow-x:hidden;
+  }
+  #memory-page.active { opacity:1; pointer-events:all; }
+  #memory-back {
+    position:sticky; top:0; z-index:10; padding:14px 22px;
+    background:linear-gradient(180deg,rgba(8,10,24,0.95),transparent);
+    color:var(--gold-light); font-size:13px; letter-spacing:2px;
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  }
+  #memory-back:hover { color:#fff; }
+  #memory-city-name-en {
+    font-family:'ZCOOL XiaoWei',serif;
+    font-size:clamp(26px,5vw,42px); color:var(--gold-light);
+    text-align:center; letter-spacing:4px; margin-top:6px;
+  }
+  #memory-city-name-cn {
+    font-size:clamp(13px,2.5vw,18px); color:var(--text-secondary);
+    text-align:center; letter-spacing:6px; margin-bottom:12px;
+  }
+
+  /* 图文并排容器 */
+  .memory-content {
+    flex:1; display:flex; flex-direction:column;
+    padding:0 5vw; gap:16px;
+  }
+  .memory-photos-col {
+    display:flex; flex-direction:column; gap:12px;
+    min-width:0;
+  }
+  #memory-hero {
+    border-radius:14px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);
+  }
+  #memory-hero img { width:100%; display:block; max-height:72vh; object-fit:contain; background:rgba(255,255,255,0.02); }
+
+  #memory-gallery {
+    display:flex; gap:10px; overflow-x:auto;
+    scroll-snap-type:x mandatory; padding-bottom:8px;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  }
+  #memory-gallery::-webkit-scrollbar { display:none; }
+  .memory-photo-card {
+    flex:0 0 auto;
+    width:clamp(180px,36vw,280px);
+    min-height:200px;
+    max-height:400px;
+    border-radius:10px; overflow:hidden; scroll-snap-align:center;
+    border:1px solid rgba(255,255,255,0.06);
+    transition:transform 0.3s; cursor:pointer;
+    background:rgba(255,255,255,0.03);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .memory-photo-card:hover { transform:scale(1.03); }
+  .memory-photo-card img { width:100%; height:100%; object-fit:contain; }
+
+  .photo-delete-btn {
+    position:absolute; top:4px; right:4px;
+    width:22px; height:22px; border-radius:50%;
+    background:rgba(0,0,0,0.6); color:#fff; border:none;
+    font-size:12px; cursor:pointer; display:flex;
+    align-items:center; justify-content:center;
+    opacity:0; transition:opacity 0.2s;
+    line-height:1; z-index:5;
+  }
+  .memory-photo-card:hover .photo-delete-btn { opacity:1; }
+  .photo-delete-btn:hover { background:rgba(220,60,60,0.85); }
+  #memory-text {
+    color:var(--text-primary); font-size:14px;
+    line-height:2.2; letter-spacing:1.5px; opacity:0.85;
+    white-space:pre-line;
+  }
+
+  /* 桌面端：图文并排 */
+  @media (min-width: 768px) {
+    .memory-content {
+      flex-direction:row; align-items:flex-start;
+      max-width:1200px; margin:0 auto; width:100%;
+      padding:0 3vw;
+    }
+    .memory-photos-col {
+      flex:1 1 60%; min-width:0;
+    }
+    #memory-text {
+      flex:0 0 280px;
+      max-width:320px;
+      position:sticky; top:80px;
+      padding:20px 0 20px 20px;
+      border-left:1px solid rgba(255,255,255,0.08);
+      text-align:left; font-size:13px;
+    }
+    #memory-hero img { max-height:65vh; }
+    .memory-photo-card {
+      width:clamp(150px,18vw,220px);
+      max-height:320px;
+      min-height:150px;
+    }
+    #memory-upload-row { justify-content:flex-start; }
+  }
+
+  #memory-upload-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; margin: 6px auto; padding: 0 22px;
+  }
+  #memory-upload-btn {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #ccc; padding: 6px 16px; border-radius: 16px;
+    cursor: pointer; font-family: inherit; font-size: 12px;
+    letter-spacing: 1px; transition: all 0.2s;
+  }
+  #memory-upload-btn:hover { background: rgba(232,184,48,0.2); border-color: var(--gold); color: #fff; }
+  #memory-upload-status {
+    font-size: 10px; color: var(--gold-light); min-width: 60px;
+  }
+
+  /* ===== Easter Egg ===== */
+  #easter-egg {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    z-index:250; pointer-events:none; opacity:0; transition:opacity 1s;
+    text-align:center;
+  }
+  #easter-egg.show { opacity:1; }
+  #easter-egg .ee-text {
+    font-family:'ZCOOL XiaoWei',serif;
+    font-size:clamp(16px,3vw,24px); color:var(--gold-light);
+    letter-spacing:3px; text-shadow:0 0 30px rgba(232,184,48,0.5);
+    line-height:1.8;
+  }
+
+  /* ===== Celebration ===== */
+  #celebration {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    z-index:180; pointer-events:none; opacity:0;
+    transition:opacity 2s; display:flex;
+    align-items:center; justify-content:center; flex-direction:column;
+  }
+  #celebration.active { opacity:1; }
+  #celebration .celebration-text {
+    font-family:'ZCOOL XiaoWei',serif;
+    font-size:clamp(20px,3.5vw,36px);
+    color:var(--gold-light);
+    text-shadow:0 0 40px rgba(232,184,48,0.6);
+    text-align:center; line-height:1.8; letter-spacing:4px;
+    animation:celeb-pulse 2s ease-in-out infinite;
+  }
+  @keyframes celeb-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.04);opacity:0.85} }
+
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:3px; }
+
+  @media (max-width: 600px) {
+    #snowflake-counter { top: 16px; left: 16px; font-size: 14px; padding: 4px 10px; }
+    #volume-control { top: 16px; right: 16px; }
+    #volume-btn { width: 32px; height: 32px; font-size: 14px; }
+    #volume-slider-wrap.open { width: 80px; padding: 0 8px; }
+    #volume-slider { width: 60px; }
+    .bubble { font-size: 12px; max-width: 140px; padding: 6px 10px; }
+    .avatar-img { width: 44px; height: 44px; }
+    #footer-overlay { bottom: 80px; }
+    #progress-container { bottom: 18px; }
+    #admin-btn { bottom: 14px; right: 14px; width: 32px; height: 32px; font-size: 14px; }
+  }
+
+  /* ===== 管理面板（上传资源） ===== */
+  #admin-btn {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 100;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(0,0,0,0.1);
+    cursor: pointer;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  #admin-btn:hover { transform: scale(1.1); background: #fff; }
+
+  #admin-panel {
+    position: fixed;
+    bottom: 70px;
+    right: 22px;
+    z-index: 99;
+    width: 280px;
+    background: rgba(20, 22, 38, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    padding: 16px;
+    color: #fff;
+    font-family: 'Noto Serif SC', serif;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+  }
+  #admin-panel.show {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+  }
+  #admin-panel h3 {
+    font-size: 13px;
+    margin-bottom: 12px;
+    color: var(--gold-light);
+    letter-spacing: 1px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .admin-item {
+    margin-bottom: 10px;
+  }
+  .admin-item label {
+    display: block;
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .admin-item-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .admin-upload-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .admin-upload-btn:hover {
+    background: rgba(232,184,48,0.2);
+    border-color: var(--gold);
+  }
+  .admin-status {
+    font-size: 10px;
+    color: var(--gold-light);
+    margin-top: 2px;
+    min-height: 12px;
+  }
+  .admin-clear {
+    width: 100%;
+    margin-top: 6px;
+    background: rgba(220,80,100,0.15);
+    border: 1px solid rgba(220,80,100,0.3);
+    color: #f0a8b8;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: inherit;
+  }
+  .admin-clear:hover {
+    background: rgba(220,80,100,0.3);
+  }
+  .admin-hint {
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 8px;
+    line-height: 1.4;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 像素雪花背景 -->
+<div class="pixel-snow" id="pixel-snow"></div>
+<div class="center-glow"></div>
+
+<!-- 主Canvas（地球） -->
+<canvas id="globe"></canvas>
+
+<!-- ============================================ -->
+<!-- =============  开屏 Loading  ============== -->
+<!-- ============================================ -->
+<div id="opening">
+  <div id="opening-bg">
+    <!-- 替换为 images/opening.jpg 即加载你的图 -->
+    <img src="images/opening.jpg" alt="" onerror="this.style.display='none'">
+  </div>
+
+  <!-- 装饰emoji -->
+  <div class="opening-emoji" style="top: 18%; left: 18%;">😘</div>
+  <div class="opening-emoji" style="top: 22%; right: 22%; animation-delay: 1s;">👑</div>
+  <div class="opening-emoji" style="top: 50%; left: 12%; animation-delay: 2s;">🧚</div>
+  <div class="opening-emoji" style="top: 56%; right: 14%; animation-delay: 0.5s;">🎂</div>
+  <div class="opening-emoji" style="bottom: 30%; left: 20%; animation-delay: 1.5s;">⭐</div>
+
+  <!-- 右上角计数 1/5 -->
+  <div class="opening-counter">1/5</div>
+
+  <div id="opening-content">
+    <div class="loading-text">Loading memories...</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-percent" id="progress-percent">0%</div>
+    <div class="enter-buttons" id="enter-buttons">
+      <button class="enter-btn" id="btn-enter">ENTER</button>
+      <button class="enter-btn secondary" id="btn-skip">OR?</button>
+    </div>
+  </div>
+
+  <div class="opening-title">
+    <div class="en">Potato Amusement Park</div>
+    <div class="cn">土豆游乐园</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- =============  主场景 UI  ================== -->
+<!-- ============================================ -->
+
+<div id="title-overlay">
+  <div class="main-title">Potato Amusement Park</div>
+  <div class="subtitle">🥔 土豆游乐园 · 属于我们的记忆</div>
+</div>
+
+<!-- 左上角雪花计数 -->
+<div id="snowflake-counter">
+  <span>雪花：</span>
+  <span class="sf-num" id="sf-count">0</span>
+  <span class="sf-icon">❄️</span>
+</div>
+
+<!-- 右上角音量控制 -->
+<div id="volume-control">
+  <div id="volume-slider-wrap">
+    <input type="range" id="volume-slider" min="0" max="100" value="50">
+  </div>
+  <button id="volume-btn" title="音量">🔊</button>
+</div>
+
+<!-- 头像 + 气泡 -->
+<div id="avatar-section">
+  <div class="bubble" id="avatar-bubble">THAT BRING YOU BACK TO YOUR CHERISHED TIME</div>
+  <div class="avatar-img" id="avatar-img"
+       style="background-image: url('images/avatar.jpg'), url('https://api.dicebear.com/7.x/adventurer/svg?seed=friend&backgroundColor=ffd5dc,ffdfba');">
+  </div>
+</div>
+
+<!-- 底部副标题 -->
+<div id="footer-overlay">
+  <div class="footer-en">The world is your potato and amusement park.<br>Make sweet memories and have fun!</div>
+  <div class="footer-cn">拖动地球探索回忆 🌍</div>
+</div>
+
+<!-- 进度条 -->
+<div id="progress-container">
+  <span id="snowflake-icon">❄️</span>
+  <span id="progress-text">5 片雪花解锁下一站</span>
+  <div id="progress-bar-outer"><div id="progress-bar-inner"></div></div>
+</div>
+
+<!-- Tooltip -->
+<div id="city-tooltip"></div>
+
+<!-- Note -->
+<div id="note-popup">
+  <div class="note-icon">💌</div>
+  <div class="note-text"></div>
+  <button class="note-dismiss" onclick="window._dismissNote()">收下 ✨</button>
+</div>
+
+<!-- Memory Page -->
+<div id="memory-page">
+  <div id="memory-back" onclick="window._closeMemory()">← Back to Earth</div>
+  <div id="memory-city-name-en"></div>
+  <div id="memory-city-name-cn"></div>
+  <div class="memory-content">
+    <div class="memory-photos-col">
+      <div id="memory-hero"><img id="memory-hero-img" src="" alt=""></div>
+      <div id="memory-gallery"></div>
+      <div id="memory-upload-row">
+        <button id="memory-upload-btn" onclick="document.getElementById('up-city-photos').click()">📷 上传照片</button>
+        <input type="file" id="up-city-photos" accept="image/*" multiple style="display:none">
+        <span id="memory-upload-status"></span>
+      </div>
+    </div>
+    <div id="memory-text"></div>
+  </div>
+</div>
+
+<!-- Easter Egg -->
+<div id="easter-egg"><div class="ee-text"></div></div>
+
+<!-- Celebration -->
+<div id="celebration"><div class="celebration-text"></div></div>
+
+<!-- 背景音乐（替换 audio/bgm.mp3 为你的音乐） -->
+<audio id="bgm" src="audio/bgm.mp3" loop preload="auto"></audio>
+
+<!-- 主场景背景层（地球后方） -->
+<div id="scene-bg"></div>
+
+<!-- 管理面板：上传图片/音乐 -->
+<button id="admin-btn" title="上传资源">📤</button>
+<div id="admin-panel">
+  <h3>🥔 上传你的资源</h3>
+
+  <div class="admin-item">
+    <label>开屏插画（P1）</label>
+    <div class="admin-item-row">
+      <button class="admin-upload-btn" onclick="document.getElementById('up-opening').click()">选择图片</button>
+      <input type="file" id="up-opening" accept="image/*" style="display:none">
+    </div>
+    <div class="admin-status" id="status-opening">未上传</div>
+  </div>
+
+  <div class="admin-item">
+    <label>主场景背景（P2）</label>
+    <div class="admin-item-row">
+      <button class="admin-upload-btn" onclick="document.getElementById('up-scene').click()">选择图片</button>
+      <input type="file" id="up-scene" accept="image/*" style="display:none">
+    </div>
+    <div class="admin-status" id="status-scene">未上传</div>
+  </div>
+
+  <div class="admin-item">
+    <label>朋友头像（P3）</label>
+    <div class="admin-item-row">
+      <button class="admin-upload-btn" onclick="document.getElementById('up-avatar').click()">选择图片</button>
+      <input type="file" id="up-avatar" accept="image/*" style="display:none">
+    </div>
+    <div class="admin-status" id="status-avatar">未上传</div>
+  </div>
+
+  <div class="admin-item">
+    <label>背景音乐</label>
+    <div class="admin-item-row">
+      <button class="admin-upload-btn" onclick="document.getElementById('up-bgm').click()">选择音频</button>
+      <input type="file" id="up-bgm" accept="audio/*" style="display:none">
+    </div>
+    <div class="admin-status" id="status-bgm">未上传</div>
+  </div>
+
+  <button class="admin-clear" onclick="window._adminClearAll()">🗑️ 清除所有已上传资源</button>
+
+  <div class="admin-hint">
+    上传的图片和音乐会保存在你浏览器本地，<br>
+    关闭网页再次打开依然在。无需任何服务器。
+  </div>
+</div>
+
+<!-- GSAP -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+
+<!-- Three.js -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+// ============================================
+//  像素雪花背景生成
+// ============================================
+(function makePixelSnow() {
+  const c = document.getElementById('pixel-snow');
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement('div');
+    p.className = 'pixel' + (Math.random() < 0.2 ? ' large' : '');
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = Math.random() * 100 + '%';
+    p.style.opacity = (0.3 + Math.random() * 0.5);
+    p.style.transform = `scale(${0.5 + Math.random() * 1})`;
+    p.style.animation = `pixelFloat ${10 + Math.random() * 15}s linear infinite`;
+    p.style.animationDelay = `${-Math.random() * 20}s`;
+    c.appendChild(p);
+  }
+  // 注入动画
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes pixelFloat {
+      0% { transform: translateY(-20px) scale(var(--s,1)); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(110vh) scale(var(--s,1)); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ╔══════════════════════════════════════════════╗
+// ║   📝 可编辑内容 —— 修改这里即可自定义      ║
+// ╚══════════════════════════════════════════════╝
+
+const locations = [
+  {
+    name: "Shanghai", chineseName: "上海",
+    coordinates: [31.2, 121.5],
+    photos: ["images/cities/shanghai/1.jpg","images/cities/shanghai/2.jpg","images/cities/shanghai/3.jpg","images/cities/shanghai/4.jpg"],
+    text: "在黄浦江边走到很晚。\n那天风很冷，但灯光很好看。\n我们说了很多话，也沉默了很久。"
+  },
+  {
+    name: "Hangzhou", chineseName: "杭州",
+    coordinates: [30.3, 120.2],
+    photos: [],
+    text: "西湖边的风带着桂花香。\n我们租了自行车，骑过断桥和苏堤。\n你说这就是人间天堂的样子。"
+  },
+  {
+    name: "Los Angeles", chineseName: "洛杉矶",
+    coordinates: [34.1, -118.2],
+    photos: [],
+    text: "加州的阳光好得不像话。\nSanta Monica海边坐到日落，\n天空从橙色变成紫色。"
+  },
+  {
+    name: "Phuket", chineseName: "普吉岛",
+    coordinates: [7.9, 98.4],
+    photos: ["images/cities/phuket/1.jpg","images/cities/phuket/2.jpg"],
+    text: "第一次一起看热带的海。\n浮潜的时候你拉着我的手，\n指给我看那些彩色的鱼。"
+  },
+  {
+    name: "Sanya", chineseName: "三亚",
+    coordinates: [18.3, 109.5],
+    photos: [],
+    text: "天涯海角，我们真的来了。\n椰子树下喝椰子，沙滩上踩浪花。\n世界很大，我们很小，\n但有你就够了。"
+  },
+  {
+    name: "Xiamen", chineseName: "厦门",
+    coordinates: [24.5, 118.1],
+    photos: ["images/cities/xiamen/1.jpg","images/cities/xiamen/2.jpg"],
+    text: "鼓浪屿的小巷弯弯绕绕。\n我们迷路了好几次，\n但每次迷路都发现意想不到的惊喜。"
+  },
+  {
+    name: "Chengdu", chineseName: "成都",
+    coordinates: [30.6, 104.1],
+    photos: ["images/cities/chengdu/1.jpg","images/cities/chengdu/2.jpg","images/cities/chengdu/3.jpg"],
+    text: "火锅辣得我们眼泪直流，\n但还是停不下筷子。\n看了大熊猫，逛了宽窄巷子。"
+  },
+  {
+    name: "Xi'an", chineseName: "西安",
+    coordinates: [34.3, 108.9],
+    photos: ["images/cities/xian/1.jpg"],
+    text: "站在古城墙上，风很大。\n我们一起骑车绕了一圈，\n脚下的青砖见证了一千年的故事。"
+  },
+  {
+    name: "Suzhou", chineseName: "苏州",
+    coordinates: [31.3, 120.6],
+    photos: [],
+    text: "园林里的每一扇窗都是一幅画。\n你说苏州像一个温柔的梦，\n我说你就是这个梦里最美的那部分。"
+  },
+  {
+    name: "Xinjiang", chineseName: "新疆",
+    coordinates: [43.8, 87.6],
+    photos: ["images/cities/xinjiang/1.jpg","images/cities/xinjiang/2.jpg","images/cities/xinjiang/3.jpg","images/cities/xinjiang/4.jpg","images/cities/xinjiang/5.jpg"],
+    text: "天地辽阔，喀纳斯的湖水蓝得不像真的。\n我们骑马、吃烤肉、看星空。\n和你一起才知道世界多美好。"
+  },
+  {
+    name: "Xishuangbanna", chineseName: "西双版纳",
+    coordinates: [21.7, 100.8],
+    photos: ["images/cities/xishuangbanna/1.jpg","images/cities/xishuangbanna/2.jpg","images/cities/xishuangbanna/3.jpg"],
+    text: "热带雨林里到处都是神奇的植物。\n我们骑了大象，逛了夜市，\n吃了这辈子最好吃的菠萝饭。\n版纳的风是甜的，和你一样。"
+  },
+  {
+    name: "Sydney", chineseName: "悉尼",
+    coordinates: [-33.9, 151.2],
+    photos: ["images/cities/sydney/1.jpg","images/cities/sydney/2.jpg","images/cities/sydney/3.jpg","images/cities/sydney/4.jpg","images/cities/sydney/5.jpg"],
+    text: "在歌剧院前拍了无数张照片。\nBondi海滩的浪很大，你差点被冲走。\n我们笑到肚子疼。"
+  },
+];
+
+// 💌 便签
+const NOTES = [
+  '和你一起走过的每一条街道，都变成了我心里最美的风景 🌸',
+  '谢谢你陪我看了那么多场日出日落，每一次都值得',
+  '世界很大，但有你在身边就刚刚好 💕',
+  '我们笑着闹着，不知不觉就走过了这么多城市',
+  '你是我旅行中最棒的旅伴，也是人生中最珍贵的朋友',
+  '每一次迷路、每一次赶车、每一次吃到好吃的，都因为有你在而变得特别',
+  '朋友就是在一起不说话也不会尴尬，在一起说话就停不下来 🎈',
+  '希望未来我们还能一起去更多地方，看更多风景',
+  '土豆打开了，里面全是闪闪发光的回忆 ✨',
+  '青春有期限，但我们的友谊没有保质期',
+  '有时候觉得，和你在一起的时光就像偷来的糖果 🍬',
+  '谢谢你让这个世界变得柔软又可爱',
+  '愿你的每一天都像旅途中最好的那天一样灿烂',
+  '我们的故事，未完待续……',
+  '这个世界因为有你，变成了一个值得探索的游乐园 🎠',
+  '生日快乐！愿所有美好都向你奔赴而来 🎂',
+  '你是那种让世界变得更好的人，感谢你出现在我的生命里',
+  '无论走多远，我们的友谊永远是最温暖的坐标 🌟',
+];
+
+// 💬 头像气泡（可替换为多条循环）
+const BUBBLE_TEXTS = [
+  'THAT BRING YOU BACK TO YOUR CHERISHED TIME',
+  '每一段路都值得被记住 ✨',
+  '今天也想和你一起出发 🌍',
+  '新的回忆在等你收集 ❄️',
+  'You are my favourite adventure 💕',
+];
+
+// ╔══════════════════════════════════╗
+// ║   🎮 游戏状态                   ║
+// ╚══════════════════════════════════╝
+const SNOWFLAKES_PER_UNLOCK = 5;
+let snowflakesCollected = 0;
+let unlockedCount = 1;
+let celebrationShown = false;
+let usedNotes = [];
+let noteTimeout = null;
+let isAnimatingUnlock = false;
+let openingDone = false;
+
+// ╔══════════════════════════════════╗
+// ║   🔐 资源存在性检测             ║
+// ╚══════════════════════════════════╝
+async function checkImgExists(url) {
+  try {
+    const r = await fetch(url, { method: 'HEAD' });
+    return r.ok;
+  } catch { return false; }
+}
+
+(async () => {
+  const hasOpening = await checkImgExists('images/opening.jpg');
+  const hasAvatar = await checkImgExists('images/avatar.jpg');
+  const hasBgm = await checkImgExists('audio/bgm.mp3');
+
+  console.log('🥔 资源检查:');
+  console.log('  开屏图:', hasOpening ? '✅' : '⚠️ 未找到，使用默认渐变');
+  console.log('  头像图:', hasAvatar ? '✅' : '⚠️ 未找到，使用DiceBear占位');
+  console.log('  背景音乐:', hasBgm ? '✅' : '⚠️ 未找到，音量按钮可点击但无声音');
+})();
+
+// ╔══════════════════════════════════╗
+// ║   🎬 开屏动画                   ║
+// ╚══════════════════════════════════╝
+const openingEl = document.getElementById('opening');
+const progressFill = document.getElementById('progress-fill');
+const progressPercent = document.getElementById('progress-percent');
+const enterButtons = document.getElementById('enter-buttons');
+
+let loadProgress = 0;
+const loadInterval = setInterval(() => {
+  loadProgress += Math.random() * 4 + 2;
+  if (loadProgress >= 100) {
+    loadProgress = 100;
+    clearInterval(loadInterval);
+    setTimeout(() => {
+      progressPercent.textContent = '100%';
+      progressFill.style.width = '100%';
+      enterButtons.classList.add('show');
+    }, 300);
+  }
+  progressPercent.textContent = Math.floor(loadProgress) + '%';
+  progressFill.style.width = loadProgress + '%';
+}, 100);
+
+function closeOpening(skip = false) {
+  if (openingDone) return;
+  openingDone = true;
+
+  // 显示主场景
+  document.getElementById('globe').classList.add('visible');
+  document.getElementById('title-overlay').classList.add('visible');
+  document.getElementById('snowflake-counter').classList.add('visible');
+  document.getElementById('volume-control').classList.add('visible');
+  document.getElementById('avatar-section').classList.add('visible');
+  document.getElementById('footer-overlay').classList.add('visible');
+  document.getElementById('progress-container').classList.add('visible');
+
+  // 隐藏开屏
+  openingEl.classList.add('hidden');
+  setTimeout(() => openingEl.style.display = 'none', 800);
+
+  // 启动音乐（仅在用户交互后）
+  tryPlayMusic();
+
+  // 初始雪花
+  spawnInitialSnowflakes();
+}
+
+document.getElementById('btn-enter').addEventListener('click', () => closeOpening(false));
+document.getElementById('btn-skip').addEventListener('click', () => closeOpening(true));
+document.addEventListener('keydown', e => {
+  if (!openingDone && (e.key === 'Enter' || e.key === ' ')) closeOpening(false);
+});
+
+// ╔══════════════════════════════════╗
+// ║   🎵 音乐控制                   ║
+// ╚══════════════════════════════════╝
+const bgm = document.getElementById('bgm');
+const volumeBtn = document.getElementById('volume-btn');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeSliderWrap = document.getElementById('volume-slider-wrap');
+let isMuted = false;
+
+volumeSlider.value = 50;
+bgm.volume = 0.5;
+
+volumeSlider.addEventListener('input', e => {
+  const v = e.target.value / 100;
+  bgm.volume = v;
+  if (v === 0) {
+    isMuted = true;
+    volumeBtn.textContent = '🔇';
+    volumeBtn.classList.add('muted');
+  } else {
+    isMuted = false;
+    volumeBtn.textContent = v < 0.5 ? '🔉' : '🔊';
+    volumeBtn.classList.remove('muted');
+  }
+});
+
+volumeBtn.addEventListener('click', () => {
+  isMuted = !isMuted;
+  if (isMuted) {
+    bgm.pause();
+    volumeBtn.textContent = '🔇';
+    volumeBtn.classList.add('muted');
+  } else {
+    bgm.play().catch(() => {});
+    volumeBtn.textContent = bgm.volume < 0.5 ? '🔉' : '🔊';
+    volumeBtn.classList.remove('muted');
+  }
+});
+
+// 滑条展开/收起
+let sliderOpen = false;
+volumeBtn.addEventListener('mouseenter', () => {
+  if (!sliderOpen) {
+    sliderOpen = true;
+    volumeSliderWrap.classList.add('open');
+  }
+});
+document.getElementById('volume-control').addEventListener('mouseleave', () => {
+  if (sliderOpen) {
+    sliderOpen = false;
+    volumeSliderWrap.classList.remove('open');
+  }
+});
+// 移动端点击
+volumeBtn.addEventListener('touchstart', e => {
+  e.preventDefault();
+  sliderOpen = !sliderOpen;
+  volumeSliderWrap.classList.toggle('open', sliderOpen);
+}, { passive: false });
+
+function tryPlayMusic() {
+  if (!isMuted) {
+    bgm.volume = volumeSlider.value / 100;
+    bgm.play().catch(e => {
+      console.log('🎵 自动播放被阻止，需要用户交互后点击音量按钮');
+    });
+  }
+}
+
+// ╔══════════════════════════════════╗
+// ║   👤 头像气泡（轮播）           ║
+// ╚══════════════════════════════════╝
+const avatarImg = document.getElementById('avatar-img');
+const avatarBubble = document.getElementById('avatar-bubble');
+let bubbleIdx = 0;
+let bubbleInterval = null;
+
+function startBubbleCycle() {
+  if (bubbleInterval) return;
+  bubbleInterval = setInterval(() => {
+    bubbleIdx = (bubbleIdx + 1) % BUBBLE_TEXTS.length;
+    avatarBubble.style.opacity = '0';
+    avatarBubble.style.transform = 'translateY(-4px)';
+    setTimeout(() => {
+      avatarBubble.textContent = BUBBLE_TEXTS[bubbleIdx];
+      avatarBubble.style.opacity = '1';
+      avatarBubble.style.transform = 'translateY(0)';
+    }, 300);
+  }, 5000);
+}
+
+avatarImg.addEventListener('click', () => {
+  bubbleIdx = (bubbleIdx + 1) % BUBBLE_TEXTS.length;
+  avatarBubble.style.opacity = '0';
+  avatarBubble.style.transform = 'translateY(-4px)';
+  setTimeout(() => {
+    avatarBubble.textContent = BUBBLE_TEXTS[bubbleIdx];
+    avatarBubble.style.opacity = '1';
+    avatarBubble.style.transform = 'translateY(0)';
+  }, 200);
+});
+
+// 气泡样式过渡
+avatarBubble.style.transition = 'all 0.3s ease';
+
+// ╔══════════════════════════════════╗
+// ║   🌐 Three.js 初始化             ║
+// ╚══════════════════════════════════╝
+const canvas = document.getElementById('globe');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.3, 80);
+camera.position.set(0, 0.6, 5.8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 3;
+controls.maxDistance = 10;
+controls.maxPolarAngle = Math.PI * 0.78;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.25;
+controls.target.set(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0x667799, 2.0));
+const sun = new THREE.DirectionalLight(0xfff5ee, 2.8);
+sun.position.set(5, 3, 5); scene.add(sun);
+const fill = new THREE.DirectionalLight(0x8899cc, 1.0);
+fill.position.set(-3, -1, -3); scene.add(fill);
+
+// 星空
+const starGeom = new THREE.BufferGeometry();
+const starPos = new Float32Array(2500 * 3);
+for (let i = 0; i < 2500; i++) {
+  const th = Math.random() * Math.PI * 2;
+  const ph = Math.acos(2 * Math.random() - 1);
+  const r = 14 + Math.random() * 25;
+  starPos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+  starPos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+  starPos[i * 3 + 2] = r * Math.cos(ph);
+}
+starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const stars = new THREE.Points(starGeom, new THREE.PointsMaterial({
+  color: 0xaabbdd, size: 0.022, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55
+}));
+scene.add(stars);
+
+// ╔══════════════════════════════════╗
+// ║   🌍 地球                       ║
+// ╚══════════════════════════════════╝
+const GLOBE_R = 1.6;
+const globeGeom = new THREE.SphereGeometry(GLOBE_R, 80, 60);
+
+const texC = document.createElement('canvas');
+texC.width = 1024; texC.height = 512;
+const tctx = texC.getContext('2d');
+
+// 糖果水彩海洋 — 浅蓝绿色调
+const oceanGrad = tctx.createLinearGradient(0, 0, 0, 512);
+oceanGrad.addColorStop(0, '#7ab8d4');
+oceanGrad.addColorStop(0.3, '#5da8c8');
+oceanGrad.addColorStop(0.5, '#3d90b8');
+oceanGrad.addColorStop(0.7, '#2e78a0');
+oceanGrad.addColorStop(1, '#1e5a80');
+tctx.fillStyle = oceanGrad;
+tctx.fillRect(0, 0, 1024, 512);
+
+// 柔和大陆 — 暖色调
+tctx.fillStyle = 'rgba(180,210,160,0.75)';
+tctx.beginPath(); tctx.ellipse(580, 180, 300, 180, 0, 0, Math.PI * 2); tctx.fill();
+tctx.beginPath(); tctx.ellipse(750, 260, 200, 140, 0.2, 0, Math.PI * 2); tctx.fill();
+tctx.fillStyle = 'rgba(200,190,130,0.7)';
+tctx.beginPath(); tctx.ellipse(550, 320, 60, 130, 0, 0, Math.PI * 2); tctx.fill();
+tctx.fillStyle = 'rgba(160,200,150,0.7)';
+tctx.beginPath(); tctx.ellipse(180, 140, 160, 120, -0.2, 0, Math.PI * 2); tctx.fill();
+tctx.fillStyle = 'rgba(140,180,130,0.7)';
+tctx.beginPath(); tctx.ellipse(250, 350, 45, 80, 0.1, 0, Math.PI * 2); tctx.fill();
+tctx.fillStyle = 'rgba(200,170,120,0.7)';
+tctx.beginPath(); tctx.ellipse(800, 370, 50, 35, 0, 0, Math.PI * 2); tctx.fill();
+tctx.fillStyle = 'rgba(160,200,155,0.5)';
+for (let i = 0; i < 20; i++) { tctx.beginPath(); tctx.arc(740 + Math.random() * 60, 240 + Math.random() * 60, 4 + Math.random() * 10, 0, Math.PI * 2); tctx.fill(); }
+
+// 柔光高光
+tctx.fillStyle = 'rgba(200,230,210,0.2)';
+tctx.beginPath(); tctx.ellipse(580, 165, 180, 95, 0, 0, Math.PI * 2); tctx.fill();
+tctx.beginPath(); tctx.ellipse(180, 125, 95, 65, -0.2, 0, Math.PI * 2); tctx.fill();
+
+// 淡色网格
+tctx.strokeStyle = 'rgba(255,255,255,0.02)'; tctx.lineWidth = 0.5;
+for (let x = 0; x < 1024; x += 64) { tctx.beginPath(); tctx.moveTo(x, 0); tctx.lineTo(x, 512); tctx.stroke(); }
+for (let y = 0; y < 512; y += 64) { tctx.beginPath(); tctx.moveTo(0, y); tctx.lineTo(1024, y); tctx.stroke(); }
+
+const earthTex = new THREE.CanvasTexture(texC);
+earthTex.colorSpace = THREE.SRGBColorSpace;
+const globe = new THREE.Mesh(globeGeom, new THREE.MeshStandardMaterial({
+  map: earthTex, roughness: 0.55, metalness: 0.05, color: 0xaaccee
+}));
+scene.add(globe);
+
+// 大气层（糖果粉色光晕）
+const atmoGeom = new THREE.SphereGeometry(GLOBE_R + 0.06, 64, 40);
+const atmoMat = new THREE.ShaderMaterial({
+  vertexShader: `varying vec3 vN; varying vec3 vP; void main(){vec4 w=modelMatrix*vec4(position,1.);vN=normalize(mat3(modelMatrix)*normal);vP=w.xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader: `varying vec3 vN; varying vec3 vP; void main(){float f=1.-abs(dot(normalize(cameraPosition-vP),vN));f=pow(f,3.2);gl_FragColor=vec4(0.55,0.7,1.0,f*0.28);}`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+});
+scene.add(new THREE.Mesh(atmoGeom, atmoMat));
+
+// ╔══════════════════════════════════╗
+// ║   📍 城市系统                   ║
+// ╚══════════════════════════════════╝
+function latLngToVec3(lat, lng, r = GLOBE_R + 0.04) {
+  const phi = (90 - lat) * Math.PI / 180;
+  const theta = (lng + 180) * Math.PI / 180;
+  return new THREE.Vector3(-r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta));
+}
+
+const cityMarkers = [], cityGlows = [], cityData = [];
+const markerGeom = new THREE.SphereGeometry(0.045, 16, 12);
+const glowGeom = new THREE.RingGeometry(0.055, 0.10, 32);
+
+locations.forEach((loc, idx) => {
+  const pos = latLngToVec3(loc.coordinates[0], loc.coordinates[1]);
+  const mat = new THREE.MeshStandardMaterial({
+    color: idx === 0 ? 0xf4c542 : 0x334455,
+    roughness: 0.3, metalness: 0.5,
+    emissive: idx === 0 ? 0xf4c542 : 0x112233,
+    emissiveIntensity: idx === 0 ? 0.7 : 0.15,
+  });
+  const marker = new THREE.Mesh(markerGeom, mat);
+  marker.position.copy(pos);
+  marker.scale.setScalar(idx === 0 ? 1 : 0.7);
+  marker.userData = { idx, unlocked: idx === 0 };
+  globe.add(marker);
+  cityMarkers.push(marker);
+
+  const gMat = new THREE.MeshBasicMaterial({
+    color: idx === 0 ? 0xf4c542 : 0x334455,
+    side: THREE.DoubleSide, transparent: true,
+    opacity: idx === 0 ? 0.5 : 0.08, depthWrite: false,
+  });
+  const glow = new THREE.Mesh(glowGeom, gMat);
+  glow.position.copy(pos);
+  glow.lookAt(new THREE.Vector3(0, 0, 0));
+  glow.scale.setScalar(idx === 0 ? 1 : 0.6);
+  globe.add(glow);
+  cityGlows.push(glow);
+
+  cityData.push({ ...loc, idx, pos, unlocked: idx === 0, marker, glow });
+});
+
+// ╔══════════════════════════════════╗
+// ║   🛤️ 路径                       ║
+// ╚══════════════════════════════════╝
+const pathGroup = new THREE.Group();
+scene.add(pathGroup);
+const pathLines = [];
+
+function greatCirclePoints(from, to, segments = 80) {
+  const fn = from.clone().normalize(), tn = to.clone().normalize();
+  const dot = fn.dot(tn);
+  const pts = [];
+  if (Math.abs(dot) > 0.9999) {
+    for (let i = 0; i <= segments; i++) pts.push(fn.clone().multiplyScalar(GLOBE_R + 0.07));
+    return pts;
+  }
+  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+  const sinA = Math.sin(angle);
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const a = Math.sin((1 - t) * angle) / sinA, b = Math.sin(t * angle) / sinA;
+    const pt = fn.clone().multiplyScalar(a).add(tn.clone().multiplyScalar(b));
+    const lift = Math.sin(t * Math.PI) * 0.12;
+    pts.push(pt.normalize().multiplyScalar(GLOBE_R + 0.07 + lift));
+  }
+  return pts;
+}
+
+function createPathLine(fromIdx, toIdx) {
+  const pts = greatCirclePoints(cityData[fromIdx].pos, cityData[toIdx].pos);
+  const geom = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({
+    color: 0xf4c542, transparent: true, opacity: 0.6,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const line = new THREE.Line(geom, mat);
+  geom.setDrawRange(0, 0);
+  pathGroup.add(line);
+
+  const tCount = 6;
+  const tGeom = new THREE.BufferGeometry();
+  tGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(tCount * 3), 3));
+  const tMat = new THREE.PointsMaterial({
+    color: 0xffe8a0, size: 0.035, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  });
+  const trailPts = new THREE.Points(tGeom, tMat);
+  trailPts.userData = { pts, tCount, progress: Math.random(), speed: 0.12 + Math.random() * 0.2 };
+  pathGroup.add(trailPts);
+
+  const pathObj = { line, geom, pts, totalSegments: pts.length - 1, trailPts };
+  pathLines.push(pathObj);
+  return pathObj;
+}
+
+function animatePathDraw(pathObj) {
+  const obj = { v: 0 };
+  gsap.to(obj, {
+    v: pathObj.totalSegments,
+    duration: 1.2, ease: 'power2.out',
+    onUpdate: () => pathObj.geom.setDrawRange(0, Math.floor(obj.v) + 1),
+  });
+}
+
+// ╔══════════════════════════════════╗
+// ║   ❄️ 雪花                       ║
+// ╚══════════════════════════════════╝
+const sfGroup = new THREE.Group();
+scene.add(sfGroup);
+const sfCvs = document.createElement('canvas');
+sfCvs.width = 64; sfCvs.height = 64;
+const sfc = sfCvs.getContext('2d');
+sfc.fillStyle = 'rgba(255,255,255,0)'; sfc.fillRect(0, 0, 64, 64);
+sfc.strokeStyle = '#e8f0ff'; sfc.lineWidth = 1.5;
+sfc.shadowColor = '#aaccff'; sfc.shadowBlur = 8;
+for (let i = 0; i < 6; i++) {
+  const a = i / 6 * Math.PI * 2;
+  sfc.beginPath(); sfc.moveTo(32, 32); sfc.lineTo(32 + Math.cos(a) * 22, 32 + Math.sin(a) * 22); sfc.stroke();
+  const bx = 32 + Math.cos(a) * 14, by = 32 + Math.sin(a) * 14;
+  sfc.beginPath(); sfc.moveTo(bx + Math.cos(a + 0.5) * 4, by + Math.sin(a + 0.5) * 4);
+  sfc.lineTo(bx - Math.cos(a + 0.5) * 4, by - Math.sin(a + 0.5) * 4); sfc.stroke();
+}
+sfc.fillStyle = '#ddeeff'; sfc.shadowBlur = 12;
+sfc.beginPath(); sfc.arc(32, 32, 4, 0, Math.PI * 2); sfc.fill();
+const sfTex = new THREE.CanvasTexture(sfCvs);
+
+const MAX_SF = 12, SF_SPAWN = 1.6;
+const snowflakes = [];
+let sfSpawnTimer = 2;
+
+function createSnowflake() {
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: sfTex, blending: THREE.AdditiveBlending, depthWrite: false,
+    transparent: true, opacity: 0.9, color: 0xddeeff,
+  }));
+  sprite.scale.set(0.16, 0.16, 1);
+  const th = Math.random() * Math.PI * 2, ph = Math.random() * Math.PI;
+  const r = GLOBE_R + 0.4 + Math.random() * 2;
+  sprite.position.set(r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph));
+  sprite.userData = {
+    vel: new THREE.Vector3((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25),
+    rotSpd: 0.3 + Math.random() * 0.6, fAmp: 0.08 + Math.random() * 0.25,
+    fFreq: 0.5 + Math.random() * 1.5, fOff: Math.random() * Math.PI * 2,
+    life: 14 + Math.random() * 16, age: 0
+  };
+  sfGroup.add(sprite);
+  return sprite;
+}
+
+function spawnInitialSnowflakes() {
+  for (let i = 0; i < 5; i++) {
+    const sf = createSnowflake();
+    sf.userData.age = Math.random() * 6;
+    snowflakes.push(sf);
+  }
+  // 启动气泡轮播
+  setTimeout(() => startBubbleCycle(), 1000);
+}
+
+// ╔══════════════════════════════════╗
+// ║   ✨ 粒子                       ║
+// ╚══════════════════════════════════╝
+const sparkleGroup = new THREE.Group();
+scene.add(sparkleGroup);
+function createSparkles(pos, count = 18) {
+  const g = new THREE.BufferGeometry();
+  const p = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) { p[i * 3] = pos.x + (Math.random() - 0.5) * 0.35; p[i * 3 + 1] = pos.y + (Math.random() - 0.5) * 0.35; p[i * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.35; }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.PointsMaterial({ color: 0xffe8a0, size: 0.028, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+  const s = new THREE.Points(g, m); s.userData = { life: 1.0, age: 0 };
+  sparkleGroup.add(s); return s;
+}
+function createUnlockBurst(pos, count = 35) {
+  const g = new THREE.BufferGeometry();
+  const p = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) { p[i * 3] = pos.x + (Math.random() - 0.5) * 0.6; p[i * 3 + 1] = pos.y + (Math.random() - 0.5) * 0.6; p[i * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.6; }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.PointsMaterial({ color: 0xf4c542, size: 0.04, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+  const s = new THREE.Points(g, m); s.userData = { life: 1.5, age: 0 };
+  sparkleGroup.add(s); return s;
+}
+
+// ╔══════════════════════════════════╗
+// ║   🔓 解锁                       ║
+// ╚══════════════════════════════════╝
+function unlockCity(ci) {
+  if (ci <= 0 || cityData[ci].unlocked) return;
+  const cd = cityData[ci];
+  cd.unlocked = true;
+  cd.marker.userData.unlocked = true;
+  unlockedCount = Math.max(unlockedCount, ci + 1);
+  createUnlockBurst(cd.pos, 40);
+
+  const tl = gsap.timeline();
+  tl.to(cd.marker.scale, { x: 1.25, y: 1.25, z: 1.25, duration: 0.35, ease: 'power2.out' });
+  tl.to(cd.glow.scale, { x: 1.25, y: 1.25, z: 1.25, duration: 0.35, ease: 'power2.out' }, '-=0.35');
+  tl.to(cd.marker.material.color, { r: 0.957, g: 0.773, b: 0.188, duration: 0.5 }, '-=0.2');
+  tl.to(cd.marker.material.emissive, { r: 0.957, g: 0.773, b: 0.188, duration: 0.5 }, '-=0.5');
+  tl.to(cd.marker.material, { emissiveIntensity: 0.85, duration: 0.5 }, '-=0.5');
+  tl.to(cd.glow.material.color, { r: 0.957, g: 0.773, b: 0.188, duration: 0.5 }, '-=0.5');
+  tl.to(cd.glow.material, { opacity: 0.55, duration: 0.5 }, '-=0.5');
+  tl.to(cd.marker.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: 'back.out(1.7)' });
+  tl.to(cd.glow.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: 'back.out(1.7)' }, '-=0.5');
+  tl.call(() => {
+    createPathLine(ci - 1, ci);
+    animatePathDraw(pathLines[pathLines.length - 1]);
+    updateProgress();
+  }, null, '-=0.3');
+  tl.call(() => {
+    if (unlockedCount >= locations.length && !celebrationShown) complete();
+  });
+}
+
+function complete() {
+  celebrationShown = true;
+  createPathLine(locations.length - 1, 0);
+  setTimeout(() => animatePathDraw(pathLines[pathLines.length - 1]), 600);
+  controls.autoRotateSpeed = 0.7;
+  const cel = document.getElementById('celebration');
+  cel.querySelector('.celebration-text').innerHTML = '🎉<br>世界亮起了星星的轨迹<br>我们的回忆闪闪发光<br>✨';
+  cel.classList.add('active');
+  document.getElementById('hint')?.style && (document.getElementById('hint').style.opacity = '0');
+  setTimeout(() => cel.classList.remove('active'), 7000);
+}
+
+// ╔══════════════════════════════════╗
+// ║   🎯 核心交互                   ║
+// ╚══════════════════════════════════╝
+function collectSnowflake(sf) {
+  if (celebrationShown && unlockedCount >= locations.length) return;
+  if (isAnimatingUnlock) return;
+  const wp = new THREE.Vector3();
+  sf.getWorldPosition(wp);
+  createSparkles(wp, 18);
+  gsap.to(sf.scale, { x: 0.28, y: 0.28, duration: 0.15, yoyo: true, repeat: 1, ease: 'power2.out' });
+  gsap.to(sf.material, {
+    opacity: 0, duration: 0.3, onComplete: () => {
+      const i = snowflakes.indexOf(sf);
+      if (i > -1) snowflakes.splice(i, 1);
+      sfGroup.remove(sf); sf.material.dispose();
+    }
+  });
+  snowflakesCollected++;
+  document.getElementById('sf-count').textContent = snowflakesCollected;
+  updateProgress();
+  const targetUnlocked = 1 + Math.floor(snowflakesCollected / SNOWFLAKES_PER_UNLOCK);
+  if (targetUnlocked > unlockedCount && targetUnlocked <= locations.length) {
+    isAnimatingUnlock = true;
+    unlockCity(unlockedCount);
+    setTimeout(() => { isAnimatingUnlock = false; }, 2000);
+  }
+  if (Math.random() < 0.1) showNote();
+}
+
+function updateProgress() {
+  const citiesLeft = locations.length - unlockedCount;
+  const sfNeeded = SNOWFLAKES_PER_UNLOCK - (snowflakesCollected % SNOWFLAKES_PER_UNLOCK);
+  if (citiesLeft <= 0) {
+    document.getElementById('progress-text').textContent = '🎉 全部解锁!';
+    document.getElementById('progress-bar-inner').style.width = '100%';
+  } else {
+    document.getElementById('progress-text').textContent = `${sfNeeded} 片解锁下一站 · ${unlockedCount}/${locations.length} 城`;
+    document.getElementById('progress-bar-inner').style.width =
+      `${((unlockedCount - 1 + (SNOWFLAKES_PER_UNLOCK - sfNeeded) / SNOWFLAKES_PER_UNLOCK) / locations.length) * 100}%`;
+  }
+}
+
+// ╔══════════════════════════════════╗
+// ║   💌 便签                       ║
+// ╚══════════════════════════════════╝
+function showNote() {
+  if (noteTimeout) clearTimeout(noteTimeout);
+  let av = NOTES.filter((_, i) => !usedNotes.includes(i));
+  if (!av.length) { usedNotes = []; av = [...NOTES]; }
+  const n = av[Math.floor(Math.random() * av.length)];
+  usedNotes.push(NOTES.indexOf(n));
+  const pop = document.getElementById('note-popup');
+  pop.querySelector('.note-text').textContent = n;
+  pop.classList.add('show');
+  noteTimeout = setTimeout(() => pop.classList.remove('show'), 4500);
+}
+window._dismissNote = () => {
+  if (noteTimeout) clearTimeout(noteTimeout);
+  document.getElementById('note-popup').classList.remove('show');
+};
+
+// ╔══════════════════════════════════╗
+// ║   📖 记忆页面 + 📷 照片上传（服务器持久化） ║
+// ╚══════════════════════════════════╝
+const CITY_PHOTO_PREFIX = 'potato_city_photos_';
+let currentCityIdx = -1;
+
+// 城市 slug（用于服务器目录名）
+function citySlug(ci) {
+  return locations[ci].name.toLowerCase().replace(/\s+/g, '-').replace(/['']/g, '');
+}
+
+// 获取城市照片：优先服务器文件 → 回退 localStorage
+async function getCityPhotos(ci) {
+  const slug = citySlug(ci);
+  const serverDir = `images/cities/${slug}/`;
+
+  // 尝试从服务器加载照片列表（防缓存）
+  let serverPhotos = [];
+  try {
+    const resp = await fetch(serverDir + '_index.json?_=' + Date.now(), { cache: 'no-store' });
+    if (resp.ok) {
+      const data = await resp.json();
+      data.sort();
+      serverPhotos = data.map(fn => serverDir + fn);
+    }
+  } catch (e) { /* 无服务器索引文件 */ }
+
+  if (serverPhotos.length > 0) return serverPhotos;
+
+  // 回退：硬编码路径（部署后可靠）
+  if (locations[ci].photos && locations[ci].photos.length > 0) return locations[ci].photos;
+
+  // 最后回退 localStorage
+  const stored = localStorage.getItem(CITY_PHOTO_PREFIX + ci);
+  if (stored) {
+    try {
+      const urls = JSON.parse(stored);
+      if (urls.length > 0) return urls;
+    } catch (e) { }
+  }
+  return []; // 无照片
+}
+
+// 删除单张照片（从索引中移除，文件保留不删）
+async function deletePhoto(ci, photoIdx) {
+  const slug = citySlug(ci);
+  const serverDir = `images/cities/${slug}`;
+
+  let fns = [];
+  try {
+    const r = await fetch(`${serverDir}/_index.json?_=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok) fns = await r.json();
+  } catch (e) { return; }
+
+  if (photoIdx < 0 || photoIdx >= fns.length) return;
+  fns.splice(photoIdx, 1);
+
+  // 重编号：保持文件连续
+  // 简单方案：直接写回新索引，旧文件名保留不清理
+  try {
+    await fetch('/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: '_index.json',
+        subdir: serverDir,
+        data: 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(JSON.stringify(fns)))),
+      }),
+    });
+  } catch (e) {}
+}
+
+// 上传照片到服务器（只上传 dataUrl，返回保存的文件名）
+async function uploadCityPhotos(ci, dataUrls, startIdx) {
+  const slug = citySlug(ci);
+  const serverDir = `images/cities/${slug}`;
+  const newFilenames = [];
+
+  for (let i = 0; i < dataUrls.length; i++) {
+    const fn = `${startIdx + i + 1}.jpg`;
+    try {
+      const resp = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: fn, subdir: serverDir, data: dataUrls[i] }),
+      });
+      if (resp.ok) newFilenames.push(fn);
+    } catch (e) {
+      console.warn('上传失败:', fn, e);
+    }
+  }
+
+  // 读取已有 _index.json，拼接新文件名（防缓存）
+  let existingFns = [];
+  try {
+    const r = await fetch(`${serverDir}/_index.json?_=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok) existingFns = await r.json();
+  } catch (e) {}
+
+  const allFns = [...existingFns, ...newFilenames];
+  try {
+    await fetch('/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: '_index.json',
+        subdir: serverDir,
+        data: 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(JSON.stringify(allFns)))),
+      }),
+    });
+  } catch (e) {}
+
+  return allFns.map(fn => `${serverDir}/${fn}`);
+}
+
+async function renderGallery(ci) {
+  const loc = locations[ci];
+  const heroContainer = document.getElementById('memory-hero');
+  const heroImg = document.getElementById('memory-hero-img');
+  const gallery = document.getElementById('memory-gallery');
+  const status = document.getElementById('memory-upload-status');
+  const uploadBtn = document.getElementById('memory-upload-btn');
+
+  gallery.innerHTML = '';
+  status.textContent = '';
+
+  const photos = await getCityPhotos(ci);
+
+  // 清除旧占位
+  const oldPlaceholder = heroContainer.querySelector('.hero-placeholder');
+  if (oldPlaceholder) oldPlaceholder.remove();
+
+  if (photos.length === 0) {
+    // 空状态 — 在容器里放占位，隐藏 img
+    heroImg.style.display = 'none';
+    heroImg.src = '';
+
+    const ph = document.createElement('div');
+    ph.className = 'hero-placeholder';
+    ph.style.cssText = 'width:100%;min-height:28vh;display:flex;align-items:center;justify-content:center;flex-direction:column;color:rgba(255,255,255,0.35);font-size:14px;letter-spacing:1px;background:rgba(255,255,255,0.04);border-radius:14px;border:1px dashed rgba(255,255,255,0.08);';
+    ph.innerHTML = '<span style="font-size:44px;margin-bottom:10px;">📷</span><span>还没有照片</span><span style="font-size:11px;margin-top:6px;">点击下方按钮上传</span>';
+    heroContainer.appendChild(ph);
+
+    uploadBtn.textContent = '📷 上传照片';
+    uploadBtn.style.background = 'rgba(232,184,48,0.15)';
+    uploadBtn.style.borderColor = 'rgba(232,184,48,0.3)';
+  } else {
+    // 有照片 — 显示 img，重置所有内联样式
+    heroImg.style.cssText = '';
+    heroImg.style.display = 'block';
+    heroImg.src = photos[0];
+    heroImg.alt = loc.name;
+
+    photos.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'memory-photo-card';
+      const img = document.createElement('img');
+      img.src = p;
+      img.alt = `${loc.name} ${i + 1}`;
+      img.loading = 'lazy';
+      img.addEventListener('click', () => {
+        heroImg.src = p;
+        heroImg.style.display = 'block';
+      });
+      card.appendChild(img);
+
+      // 删除按钮
+      const delBtn = document.createElement('button');
+      delBtn.className = 'photo-delete-btn';
+      delBtn.textContent = '×';
+      delBtn.title = '删除这张照片';
+      delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`确定要删除第 ${i + 1} 张照片吗？`)) return;
+        await deletePhoto(ci, i);
+        await renderGallery(ci);
+      });
+      card.appendChild(delBtn);
+
+      gallery.appendChild(card);
+    });
+
+    status.textContent = `✓ ${photos.length} 张照片`;
+    uploadBtn.textContent = '📷 继续添加照片';
+    uploadBtn.style.background = 'rgba(255,255,255,0.12)';
+    uploadBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+  }
+}
+
+window._openMemory = async (ci) => {
+  currentCityIdx = ci;
+  const loc = locations[ci];
+  const page = document.getElementById('memory-page');
+  document.getElementById('memory-city-name-en').textContent = loc.name;
+  document.getElementById('memory-city-name-cn').textContent = loc.chineseName;
+
+  await renderGallery(ci);
+
+  document.getElementById('memory-text').textContent = loc.text;
+  page.classList.add('active');
+  titleOverlay.classList.remove('visible');
+  document.getElementById('progress-container').classList.remove('visible');
+  document.getElementById('snowflake-counter').classList.remove('visible');
+  document.getElementById('volume-control').classList.remove('visible');
+  document.getElementById('avatar-section').classList.remove('visible');
+  document.getElementById('footer-overlay').classList.remove('visible');
+
+  if (ci === locations.length - 1) {
+    setTimeout(() => {
+      const ee = document.getElementById('easter-egg');
+      ee.querySelector('.ee-text').innerHTML = 'Thanks for exploring these memories.<br>More places loading…';
+      ee.classList.add('show');
+      setTimeout(() => ee.classList.remove('show'), 4000);
+    }, 1500);
+  }
+};
+
+// 照片上传（覆盖模式，支持多选）
+document.getElementById('up-city-photos').addEventListener('change', async function () {
+  const files = Array.from(this.files);
+  if (files.length === 0 || currentCityIdx < 0) return;
+
+  const status = document.getElementById('memory-upload-status');
+  const uploadBtn = document.getElementById('memory-upload-btn');
+  const btnOrig = uploadBtn.textContent;
+  status.textContent = `上传中… (0/${files.length})`;
+  uploadBtn.textContent = '⏳ 正在上传…';
+  uploadBtn.disabled = true;
+
+  // 读取所有文件
+  const dataUrls = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    status.textContent = `读取中… (${i + 1}/${files.length})`;
+    const dataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+    if (file.size > 1.5 * 1024 * 1024) {
+      dataUrls.push(await compressImage(dataUrl));
+    } else {
+      dataUrls.push(dataUrl);
+    }
+  }
+
+  // 拿到已有照片数量，新照片从后面编号
+  const existingPhotos = await getCityPhotos(currentCityIdx);
+  const startIdx = existingPhotos.length;
+
+  // 只上传新照片
+  status.textContent = `保存中… (${startIdx + dataUrls.length} 张)`;
+  const savedPaths = await uploadCityPhotos(currentCityIdx, dataUrls, startIdx);
+  // localStorage 备份
+  try {
+    localStorage.setItem(CITY_PHOTO_PREFIX + currentCityIdx, JSON.stringify(savedPaths));
+  } catch (e) { }
+  await renderGallery(currentCityIdx);
+
+  if (savedPaths.length > 0 && savedPaths[0].startsWith('images/')) {
+    status.textContent = `✓ 已保存 ${savedPaths.length} 张（服务器）`;
+  } else {
+    status.textContent = `✓ 已保存 ${savedPaths.length} 张（本地）`;
+  }
+  uploadBtn.textContent = btnOrig;
+  uploadBtn.disabled = false;
+  this.value = '';
+});
+window._closeMemory = () => {
+  document.getElementById('memory-page').classList.remove('active');
+  document.getElementById('title-overlay').classList.add('visible');
+  document.getElementById('progress-container').classList.add('visible');
+  document.getElementById('snowflake-counter').classList.add('visible');
+  document.getElementById('volume-control').classList.add('visible');
+  document.getElementById('avatar-section').classList.add('visible');
+  document.getElementById('footer-overlay').classList.add('visible');
+};
+
+const titleOverlay = document.getElementById('title-overlay');
+
+// ╔══════════════════════════════════╗
+// ║   🖱️ 事件                       ║
+// ╚══════════════════════════════════╝
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.15;
+raycaster.params.Sprite.threshold = 0.3;
+const mouse = new THREE.Vector2();
+function getIntersects(e) {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  return { sf: raycaster.intersectObjects(snowflakes), mk: raycaster.intersectObjects(cityMarkers) };
+}
+let pd = false, pm = false, ps = { x: 0, y: 0 };
+canvas.addEventListener('pointerdown', e => { pd = true; pm = false; ps = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointermove', e => {
+  if (pd && (Math.abs(e.clientX - ps.x) > 3 || Math.abs(e.clientY - ps.y) > 3)) pm = true;
+  const { mk } = getIntersects(e);
+  const tt = document.getElementById('city-tooltip');
+  if (mk.length > 0) {
+    const cd = cityData[mk[0].object.userData.idx];
+    tt.textContent = cd.unlocked ? `🌟 ${cd.name} · ${cd.chineseName}` : `🔒 ${cd.chineseName}`;
+    tt.style.left = e.clientX + 'px'; tt.style.top = e.clientY + 'px'; tt.style.opacity = '1';
+    canvas.style.cursor = cd.unlocked ? 'pointer' : 'default';
+  } else {
+    tt.style.opacity = '0';
+    canvas.style.cursor = 'grab';
+  }
+});
+canvas.addEventListener('pointerup', e => {
+  if (pm) { pd = false; return; }
+  pd = false;
+  if (!openingDone) return;
+  const { sf, mk } = getIntersects(e);
+  if (sf.length > 0 && !isAnimatingUnlock) {
+    const s = sf[0].object;
+    if (snowflakes.includes(s)) { collectSnowflake(s); return; }
+  }
+  if (mk.length > 0) {
+    const cd = cityData[mk[0].object.userData.idx];
+    if (cd.unlocked) window._openMemory(cd.idx);
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') window._closeMemory(); });
+
+// ╔══════════════════════════════════╗
+// ║   🔄 渲染循环                   ║
+// ╚══════════════════════════════════╝
+const clock = new THREE.Clock();
+function animate(ts) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.12);
+  controls.update();
+  stars.rotation.y += dt * 0.015;
+  stars.rotation.x += dt * 0.004;
+
+  for (let i = snowflakes.length - 1; i >= 0; i--) {
+    const sf = snowflakes[i];
+    sf.userData.age += dt;
+    if (sf.userData.age > sf.userData.life) {
+      sfGroup.remove(sf); sf.material.dispose();
+      snowflakes.splice(i, 1); continue;
+    }
+    const fi = Math.min(sf.userData.age / 1.2, 1);
+    const fo = sf.userData.age > sf.userData.life - 2 ? (sf.userData.life - sf.userData.age) / 2 : 1;
+    sf.material.opacity = 0.85 * fi * fo;
+    const fy = Math.sin(ts * 0.001 * sf.userData.fFreq + sf.userData.fOff) * sf.userData.fAmp;
+    sf.position.y += fy * dt; sf.position.x += sf.userData.vel.x * dt; sf.position.z += sf.userData.vel.z * dt;
+    sf.material.rotation += sf.userData.rotSpd * dt;
+    const d = sf.position.length();
+    if (d < GLOBE_R + 0.25) { sf.position.normalize().multiplyScalar(GLOBE_R + 0.3); sf.userData.vel.add(sf.position.clone().normalize().multiplyScalar(0.08)); }
+    else if (d > GLOBE_R + 3) { sf.position.normalize().multiplyScalar(GLOBE_R + 2.8); sf.userData.vel.add(sf.position.clone().normalize().multiplyScalar(-0.08)); }
+  }
+
+  sfSpawnTimer += dt;
+  if (sfSpawnTimer > SF_SPAWN && snowflakes.length < MAX_SF && openingDone) {
+    sfSpawnTimer = 0; snowflakes.push(createSnowflake());
+  }
+
+  for (let i = sparkleGroup.children.length - 1; i >= 0; i--) {
+    const s = sparkleGroup.children[i]; s.userData.age += dt;
+    if (s.userData.age > s.userData.life) { s.material.dispose(); s.geometry.dispose(); sparkleGroup.remove(s); }
+    else s.material.opacity = 1 - s.userData.age / s.userData.life;
+  }
+
+  pathLines.forEach(pl => {
+    const tp = pl.trailPts;
+    tp.userData.progress += tp.userData.speed * dt;
+    if (tp.userData.progress > 1) tp.userData.progress -= 1;
+    const pts = tp.userData.pts, n = tp.userData.tCount;
+    const arr = tp.geometry.attributes.position.array;
+    for (let i = 0; i < n; i++) {
+      const t = (tp.userData.progress + i / n) % 1;
+      const idx = Math.floor(t * (pts.length - 1));
+      const frac = t * (pts.length - 1) - idx;
+      const next = Math.min(idx + 1, pts.length - 1);
+      const pt = pts[idx].clone().lerp(pts[next], frac);
+      arr[i * 3] = pt.x; arr[i * 3 + 1] = pt.y; arr[i * 3 + 2] = pt.z;
+    }
+    tp.geometry.attributes.position.needsUpdate = true;
+  });
+
+  cityData.forEach(cd => {
+    if (cd.unlocked) {
+      const pulse = 1 + Math.sin(ts * 0.003 + cd.idx) * 0.12;
+      cd.glow.scale.setScalar(pulse);
+      cd.marker.material.emissiveIntensity = 0.6 + Math.sin(ts * 0.004 + cd.idx) * 0.3;
+    }
+  });
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ╔══════════════════════════════════╗
+// ║   📤 资源管理（上传/持久化）    ║
+// ╚══════════════════════════════════╝
+const ADMIN_KEY_PREFIX = 'potato_assets_';
+const assetStore = {
+  opening: null,
+  scene: null,
+  avatar: null,
+  bgm: null,
+};
+
+// 从 localStorage 恢复
+function loadAssetsFromStorage() {
+  ['opening', 'scene', 'avatar', 'bgm'].forEach(key => {
+    try {
+      const data = localStorage.getItem(ADMIN_KEY_PREFIX + key);
+      if (data) {
+        assetStore[key] = data;
+        applyAsset(key, data, false);
+        setStatus(key, '已加载（来自本地存储）', true);
+      } else {
+        setStatus(key, '未上传', false);
+      }
+    } catch (e) {
+      setStatus(key, '加载失败', false);
+    }
+  });
+  // 兜底：尝试加载项目内的 images/ 和 audio/ 资源
+  tryLoadProjectAssets();
+}
+
+// 尝试加载项目内默认资源（如果存在）
+function tryLoadProjectAssets() {
+  const checks = [
+    { key: 'opening', url: 'images/opening.jpg' },
+    { key: 'scene', url: 'images/scene-bg.jpg' },
+    { key: 'avatar', url: 'images/avatar.jpg' },
+    { key: 'bgm', url: 'audio/bgm.mp3' },
+  ];
+  checks.forEach(({ key, url }) => {
+    if (assetStore[key]) return; // 已有用户上传的，跳过
+    fetch(url, { method: 'HEAD' }).then(r => {
+      if (r.ok) {
+        fetch(url).then(res => res.blob()).then(blob => {
+          const reader = new FileReader();
+          reader.onload = e => applyAsset(key, e.target.result, false);
+          reader.readAsDataURL(blob);
+        });
+      }
+    }).catch(() => {});
+  });
+}
+
+function setStatus(key, text, ok) {
+  const el = document.getElementById('status-' + key);
+  if (el) {
+    el.textContent = text;
+    el.style.color = ok ? '#a0d8a0' : 'rgba(255,255,255,0.4)';
+  }
+}
+
+function applyAsset(key, dataUrl, isUserUpload) {
+  assetStore[key] = dataUrl;
+
+  // 服务器上传映射
+  const serverMap = {
+    opening: { fn: 'opening.jpg', dir: 'images' },
+    scene: { fn: 'scene-bg.jpg', dir: 'images' },
+    avatar: { fn: 'avatar.jpg', dir: 'images' },
+    bgm: { fn: 'bgm.mp3', dir: 'audio' },
+  };
+
+  // 如果用户刚上传，同时存到服务器
+  if (isUserUpload && serverMap[key]) {
+    const { fn, dir } = serverMap[key];
+    fetch('/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: fn, subdir: dir, data: dataUrl }),
+    }).then(r => r.json()).then(j => {
+      if (j.ok) setStatus(key, '✓ 已保存到服务器', true);
+    }).catch(() => setStatus(key, '✓ 已保存（本地）', true));
+  }
+
+  // 持久化备份（localStorage / IDB）
+  if (key === 'bgm') {
+    saveAudioToIDB(dataUrl);
+  } else {
+    try {
+      localStorage.setItem(ADMIN_KEY_PREFIX + key, dataUrl);
+    } catch (e) {
+      console.warn('图片存储失败：' + e.message);
+    }
+  }
+
+  if (isUserUpload) setStatus(key, '✓ 已上传', true);
+
+  // 立即应用
+  if (key === 'opening') {
+    const img = document.querySelector('#opening-bg img');
+    if (img) { img.src = dataUrl; img.style.display = 'block'; }
+  } else if (key === 'scene') {
+    const sb = document.getElementById('scene-bg');
+    if (sb) { sb.style.backgroundImage = `url(${dataUrl})`; sb.classList.add('visible'); }
+  } else if (key === 'avatar') {
+    const ai = document.getElementById('avatar-img');
+    if (ai) { ai.style.backgroundImage = `url(${dataUrl})`; }
+  } else if (key === 'bgm') {
+    const audio = document.getElementById('bgm');
+    if (audio) { audio.src = dataUrl; audio.load(); }
+  }
+}
+
+// IndexedDB 音频存储
+const audioDB = {
+  db: null,
+  open() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('oyster_assets', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('audios');
+      req.onsuccess = e => { this.db = e.target.result; resolve(); };
+      req.onerror = e => reject(e);
+    });
+  },
+  save(key, dataUrl) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) return reject('DB not open');
+      const tx = this.db.transaction('audios', 'readwrite');
+      tx.objectStore('audios').put(dataUrl, key);
+      tx.oncomplete = resolve; tx.onerror = reject;
+    });
+  },
+  get(key) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) return resolve(null);
+      const tx = this.db.transaction('audios', 'readonly');
+      const req = tx.objectStore('audios').get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = reject;
+    });
+  },
+  clear() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) return resolve();
+      const tx = this.db.transaction('audios', 'readwrite');
+      tx.objectStore('audios').clear();
+      tx.oncomplete = resolve; tx.onerror = reject;
+    });
+  }
+};
+
+async function saveAudioToIDB(dataUrl) {
+  try {
+    await audioDB.open();
+    await audioDB.save('bgm', dataUrl);
+  } catch (e) { console.warn('音频IDB保存失败：', e); }
+}
+
+async function loadAudioFromIDB() {
+  try {
+    await audioDB.open();
+    const data = await audioDB.get('bgm');
+    if (data) {
+      assetStore.bgm = data;
+      const audio = document.getElementById('bgm');
+      if (audio) { audio.src = data; audio.load(); }
+      setStatus('bgm', '已加载（来自本地）', true);
+    }
+  } catch (e) { /* IDB 不可用时静默 */ }
+}
+
+// 处理文件选择
+function handleFileSelect(key, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024 && key === 'bgm') {
+    setStatus(key, '文件太大（>10MB），请压缩', false);
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024 && key !== 'bgm') {
+    setStatus(key, '图片太大（>5MB），将压缩', false);
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const result = e.target.result;
+    if (key !== 'bgm' && file.size > 1.5 * 1024 * 1024) {
+      compressImage(result).then(compressed => applyAsset(key, compressed, true));
+    } else {
+      applyAsset(key, result, true);
+    }
+  };
+  reader.onerror = () => setStatus(key, '读取失败', false);
+  reader.readAsDataURL(file);
+}
+
+function compressImage(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxW = 1600;
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = h * maxW / w; w = maxW; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// 事件绑定
+['opening', 'scene', 'avatar', 'bgm'].forEach(key => {
+  const input = document.getElementById('up-' + key);
+  if (input) input.addEventListener('change', e => handleFileSelect(key, e.target));
+});
+
+window._adminClearAll = async () => {
+  if (!confirm('确定要清除所有已上传的资源吗？（包括城市照片）')) return;
+  ['opening', 'scene', 'avatar'].forEach(k => localStorage.removeItem(ADMIN_KEY_PREFIX + k));
+  // 清除所有城市照片
+  for (let i = 0; i < locations.length; i++) {
+    localStorage.removeItem(CITY_PHOTO_PREFIX + i);
+  }
+  try { await audioDB.open(); await audioDB.clear(); } catch(e) {}
+  assetStore.opening = null; assetStore.scene = null; assetStore.avatar = null; assetStore.bgm = null;
+  document.querySelector('#opening-bg img').style.display = 'none';
+  document.getElementById('scene-bg').classList.remove('visible');
+  document.getElementById('avatar-img').style.backgroundImage = '';
+  document.getElementById('bgm').src = 'audio/bgm.mp3';
+  ['opening', 'scene', 'avatar', 'bgm'].forEach(k => setStatus(k, '未上传', false));
+};
+
+// 启动加载
+loadAssetsFromStorage();
+loadAudioFromIDB();
+
+// 管理面板开关
+const adminBtn = document.getElementById('admin-btn');
+const adminPanel = document.getElementById('admin-panel');
+adminBtn.addEventListener('click', () => adminPanel.classList.toggle('show'));
+document.addEventListener('click', e => {
+  if (!adminPanel.contains(e.target) && e.target !== adminBtn) {
+    adminPanel.classList.remove('show');
+  }
+});
+
+requestAnimationFrame(animate);
+updateProgress();
+
+console.log('🥔 Potato Amusement Park · 土豆游乐园');
+console.log('📌 当前占位资源：');
+console.log('  - 开屏图：images/opening.jpg (未找到时使用渐变背景)');
+console.log('  - 头像：images/avatar.jpg (未找到时使用DiceBear生成)');
+console.log('  - 背景音乐：audio/bgm.mp3 (未找到时静默)');
+console.log('💡 上传资源：点右下角 📤 按钮');
+console.log('📷 上传城市照片：进入任意城市页面 → 点「📷 上传照片」');
+console.log('📍 路径：' + locations.map(l => l.chineseName).join(' → ') + ' → 上海');
+</script>
+</body>
+</html>
